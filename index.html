@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>מנהל פוסטים לקבוצות פייסבוק</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f4f5;
+      margin: 0;
+      padding: 16px;
+    }
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    label {
+      font-size: 13px;
+      font-weight: 500;
+      display: block;
+      margin-bottom: 4px;
+    }
+    input, textarea, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #d4d4d8;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button.primary {
+      background: #0f766e;
+      color: #fff;
+    }
+    button.secondary {
+      background: #e4e4e7;
+      color: #18181b;
+    }
+    button.danger {
+      background: #dc2626;
+      color: #fff;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e4e4e7;
+      font-size: 11px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0,2fr) minmax(0,1.3fr);
+      gap: 16px;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+      font-size: 12px;
+    }
+    .chip {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #f4f4f5;
+      border: 1px solid #e4e4e7;
+    }
+    .group-row {
+      border: 1px solid #e4e4e7;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: #fafafa;
+    }
+    .group-row-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      gap: 8px;
+    }
+    .small {
+      font-size: 12px;
+      color: #52525b;
+    }
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 6px 0;
+      border-radius: 999px;
+      border: 1px solid #e4e4e7;
+      font-size: 13px;
+      cursor: pointer;
+      background: #fafafa;
+    }
+    .tab.active {
+      background: #0f766e;
+      color: #fff;
+      border-color: #0f766e;
+    }
+    .hidden {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .grid-2 {
+        grid-template-columns: minmax(0,1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h1 style="margin:0;font-size:22px;">מנהל פוסטים לקבוצות פייסבוק (ללא אוטומציה)</h1>
+        <span class="badge">שומר על כללי פייסבוק</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="tabs">
+        <div class="tab active" data-tab="compose">✍️ ניסוח מודעה</div>
+        <div class="tab" data-tab="groups">👥 קבוצות</div>
+        <div class="tab" data-tab="run">🚀 ריצת פרסום</div>
+        <div class="tab" data-tab="tests">✅ בדיקות</div>
+      </div>
+
+      <!-- טאב ניסוח מודעה -->
+      <div class="tab-body" id="tab-compose">
+        <div class="grid-2">
+          <div>
+            <h2>תבנית מודעה</h2>
+            <div class="row">
+              <div style="flex:1">
+                <label>בחירת תבנית</label>
+                <select id="presetSelect"></select>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:6px;">
+                <button class="secondary" id="addPresetBtn">➕ תבנית חדשה</button>
+                <button class="danger" id="deletePresetBtn">🗑 מחק</button>
+              </div>
+            </div>
+
+            <div style="margin-top:10px;">
+              <label>
+                <input type="checkbox" id="includeTitle" checked />
+                לכלול כותרת בתחילת המודעה
+              </label>
+              <input id="presetTitle" placeholder="כותרת (למשל: להתאהב ממבט ראשון)" />
+            </div>
+
+            <div style="margin-top:10px;">
+              <label>גוף המודעה (תומך במשתנים כמו {{עיר}} {{מחיר}} {{חדרים}})</label>
+              <textarea id="presetBody"></textarea>
+            </div>
+
+            <div style="margin-top:10px;">
+              <label>האשטגים</label>
+              <input id="presetTags" placeholder="#נדלן #דירות_למכירה" />
+            </div>
+          </div>
+
+          <div>
+            <h2>משתנים מהירים</h2>
+            <div id="varsContainer"></div>
+            <div style="margin-top:8px;" class="row">
+              <button class="secondary" id="resetVarsBtn">איפוס ברירות מחדל</button>
+              <button class="secondary" id="addVarBtn">➕ הוסף משתנה</button>
+            </div>
+
+            <div style="margin-top:16px;">
+              <h2>טקסט מוכן לפרסום</h2>
+              <textarea id="compiledText" readonly></textarea>
+              <div style="margin-top:8px;" class="row">
+                <button class="primary" id="copyTextBtn">📋 העתק טקסט</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- טאב קבוצות -->
+      <div class="tab-body hidden" id="tab-groups">
+        <h2>ניהול קבוצות</h2>
+        <div class="row" style="margin-bottom:10px;">
+          <button class="primary" id="addGroupBtn">➕ הוסף קבוצה</button>
+          <button class="secondary" id="exportGroupsBtn">⬇ יצוא CSV</button>
+          <label class="small">
+            ייבוא CSV:
+            <input type="file" id="importGroupsInput" accept=".csv" />
+          </label>
+        </div>
+        <div id="groupsContainer"></div>
+      </div>
+
+      <!-- טאב ריצה -->
+      <div class="tab-body hidden" id="tab-run">
+        <h2>ריצת פרסום ידנית – צעד אחר צעד</h2>
+        <ol class="small">
+          <li>בלשונית "ניסוח מודעה" – לחץ על "📋 העתק טקסט".</li>
+          <li>כאן, לחץ על "פתח קבוצה" עבור כל קבוצה מוכנה.</li>
+          <li>הדבק את הטקסט בפייסבוק, הוסף תמונה אם צריך ופרסם.</li>
+          <li>אחרי הפרסום, לחץ "סמן כפוסט" כדי לתעד תאריך.</li>
+        </ol>
+        <div style="margin-top:10px;">
+          <button class="secondary" id="copyFromRunBtn">📋 העתק טקסט שוב</button>
+        </div>
+        <h3 style="margin-top:16px;">קבוצות מוכנות (לא בתקופת קירור)</h3>
+        <div id="readyGroups"></div>
+      </div>
+
+      <!-- טאב בדיקות -->
+      <div class="tab-body hidden" id="tab-tests">
+        <h2>בדיקות לפונקציית החלפת משתנים</h2>
+        <div id="testsContainer" class="small"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>טיפים לקצב פרסום נכון</h2>
+      <ul class="small">
+        <li>קרא את כללי כל קבוצה (מחיר חובה, ללא קישורים וכו').</li>
+        <li>השאר מרווח זמן בין פרסומים דומים כדי להימנע מחסימות.</li>
+        <li>עדיף לפרסם קודם בעמוד העסקי שלך ואז לשתף לקבוצות.</li>
+        <li>השתמש ב-UTM בקישורים כדי למדוד תנועה בגוגל אנליטיקס.</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // --------- State & helpers ----------
+    const LS_GROUPS = "fb_group_poster_groups_simple";
+    const LS_PRESETS = "fb_group_poster_presets_simple";
+    const LS_VARS = "fb_group_poster_vars_simple";
+
+    function load(key, fallback) {
+      try {
+        const v = localStorage.getItem(key);
+        return v ? JSON.parse(v) : fallback;
+      } catch {
+        return fallback;
+      }
+    }
+    function save(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    let groups = load(LS_GROUPS, []);
+    let presets = load(LS_PRESETS, [
+      {
+        id: "default",
+        name: "מודעת בסיס",
+        title: "להתאהב ממבט ראשון",
+        body:
+          "דירת 4 חדרים משופצת, מוארת ומושקעת – כניסה מיידית!\\n\\n" +
+          "✔ מרפסת שמש \\n✔ חניה ומחסן בטאבו \\n✔ מטבח משודרג עם המון אחסון \\n\\n" +
+          "לפרטים והתרשמות: 050-000-0000",
+        hashtags: "#נדלן #דירות_למכירה #באר_יעקב",
+      },
+    ]);
+    let currentPresetId = presets[0]?.id || "default";
+    let varsState = load(LS_VARS, {
+      "עיר": "באר יעקב",
+      "מחיר": "1,750,000",
+      "חדרים": "4",
+      "שכונה": "האקליפטוס",
+    });
+
+    function replaceVars(text) {
+      if (!text) return "";
+      return text.replace(/\\{\\{(.*?)\\}\\}/g, (_, key) => {
+        const k = String(key).trim();
+        return varsState[k] ?? "";
+      });
+    }
+
+    function hoursSince(iso) {
+      if (!iso) return Infinity;
+      const diff = Date.now() - new Date(iso).getTime();
+      return Math.floor(diff / (1000 * 60 * 60));
+    }
+
+    // --------- DOM refs ----------
+    const presetSelect = document.getElementById("presetSelect");
+    const presetTitle = document.getElementById("presetTitle");
+    const presetBody = document.getElementById("presetBody");
+    const presetTags = document.getElementById("presetTags");
+    const includeTitleCheckbox = document.getElementById("includeTitle");
+    const varsContainer = document.getElementById("varsContainer");
+    const compiledTextEl = document.getElementById("compiledText");
+    const copyTextBtn = document.getElementById("copyTextBtn");
+    const addPresetBtn = document.getElementById("addPresetBtn");
+    const deletePresetBtn = document.getElementById("deletePresetBtn");
+    const resetVarsBtn = document.getElementById("resetVarsBtn");
+    const addVarBtn = document.getElementById("addVarBtn");
+    const addGroupBtn = document.getElementById("addGroupBtn");
+    const exportGroupsBtn = document.getElementById("exportGroupsBtn");
+    const importGroupsInput = document.getElementById("importGroupsInput");
+    const groupsContainer = document.getElementById("groupsContainer");
+    const readyGroups = document.getElementById("readyGroups");
+    const copyFromRunBtn = document.getElementById("copyFromRunBtn");
+    const testsContainer = document.getElementById("testsContainer");
+
+    // --------- Rendering ----------
+    function renderPresetsOptions() {
+      presetSelect.innerHTML = "";
+      presets.forEach((p) => {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.name;
+        presetSelect.appendChild(opt);
+      });
+      presetSelect.value = currentPresetId;
+    }
+
+    function getCurrentPreset() {
+      return presets.find((p) => p.id === currentPresetId) || presets[0];
+    }
+
+    function renderPresetFields() {
+      const p = getCurrentPreset();
+      if (!p) return;
+      presetTitle.value = p.title || "";
+      presetBody.value = p.body || "";
+      presetTags.value = p.hashtags || "";
+      renderCompiledText();
+    }
+
+    function renderVars() {
+      varsContainer.innerHTML = "";
+      Object.keys(varsState).forEach((key) => {
+        const div = document.createElement("div");
+        div.className = "row";
+        div.style.marginBottom = "6px";
+
+        const labelDiv = document.createElement("div");
+        labelDiv.style.flex = "0 0 120px";
+        labelDiv.innerHTML = \`
+          <div class="chip">{{\${key}}}</div>
+          <div class="small">\${key}</div>
+        \`;
+
+        const inputDiv = document.createElement("div");
+        inputDiv.style.flex = "1";
+        const inp = document.createElement("input");
+        inp.value = varsState[key];
+        inp.oninput = (e) => {
+          varsState[key] = e.target.value;
+          save(LS_VARS, varsState);
+          renderCompiledText();
+        };
+        inputDiv.appendChild(inp);
+
+        const btnDiv = document.createElement("div");
+        btnDiv.style.flex = "0 0 auto";
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "✖";
+        delBtn.className = "secondary";
+        delBtn.onclick = () => {
+          delete varsState[key];
+          save(LS_VARS, varsState);
+          renderVars();
+          renderCompiledText();
+        };
+        btnDiv.appendChild(delBtn);
+
+        div.appendChild(labelDiv);
+        div.appendChild(inputDiv);
+        div.appendChild(btnDiv);
+        varsContainer.appendChild(div);
+      });
+    }
+
+    function renderCompiledText() {
+      const p = getCurrentPreset();
+      if (!p) return;
+      const includeTitle = includeTitleCheckbox.checked;
+      const titlePart = includeTitle && p.title ? "【" + replaceVars(p.title) + "】\\n\\n" : "";
+      const bodyPart = replaceVars(p.body || "");
+      const tagsPart = p.hashtags ? "\\n\\n" + p.hashtags : "";
+      compiledTextEl.value = (titlePart + bodyPart + tagsPart).trim();
+    }
+
+    function renderGroups() {
+      groupsContainer.innerHTML = "";
+      groups.forEach((g, index) => {
+        const row = document.createElement("div");
+        row.className = "group-row";
+
+        const header = document.createElement("div");
+        header.className = "group-row-header";
+
+        const title = document.createElement("div");
+        title.innerHTML = \`<strong>\${g.name || "קבוצה ללא שם"}</strong><br><span class="small">\${g.url}</span>\`;
+
+        const buttons = document.createElement("div");
+        const openBtn = document.createElement("button");
+        openBtn.className = "secondary";
+        openBtn.textContent = "פתח";
+        openBtn.onclick = () => {
+          if (g.url) window.open(g.url, "_blank");
+        };
+        const delBtn = document.createElement("button");
+        delBtn.className = "danger";
+        delBtn.textContent = "🗑";
+        delBtn.onclick = () => {
+          groups.splice(index, 1);
+          save(LS_GROUPS, groups);
+          renderGroups();
+          renderReadyGroups();
+        };
+        buttons.appendChild(openBtn);
+        buttons.appendChild(delBtn);
+
+        header.appendChild(title);
+        header.appendChild(buttons);
+        row.appendChild(header);
+
+        const nameInput = document.createElement("input");
+        nameInput.placeholder = "שם הקבוצה";
+        nameInput.value = g.name || "";
+        nameInput.oninput = (e) => {
+          g.name = e.target.value;
+          save(LS_GROUPS, groups);
+          renderGroups();
+          renderReadyGroups();
+        };
+        row.appendChild(nameInput);
+
+        const urlInput = document.createElement("input");
+        urlInput.placeholder = "קישור לקבוצה";
+        urlInput.value = g.url || "";
+        urlInput.oninput = (e) => {
+          g.url = e.target.value;
+          save(LS_GROUPS, groups);
+          renderReadyGroups();
+        };
+        row.appendChild(urlInput);
+
+        const rulesInput = document.createElement("textarea");
+        rulesInput.placeholder = "הערות/כללי הקבוצה (ללא קישורים? מחיר חובה? וכו')";
+        rulesInput.value = g.rules || "";
+        rulesInput.oninput = (e) => {
+          g.rules = e.target.value;
+          save(LS_GROUPS, groups);
+        };
+        row.appendChild(rulesInput);
+
+        const smallRow = document.createElement("div");
+        smallRow.className = "small";
+        const cool = g.cooldownHours ?? 72;
+        const last = g.lastPostedAt
+          ? "פורסם לאחרונה: " + new Date(g.lastPostedAt).toLocaleString("he-IL")
+          : "טרם פורסם";
+        smallRow.textContent = \`שעות קירור: \${cool} | \${last}\`;
+        row.appendChild(smallRow);
+
+        groupsContainer.appendChild(row);
+      });
+    }
+
+    function renderReadyGroups() {
+      readyGroups.innerHTML = "";
+      const nowReady = groups.filter((g) => {
+        const cool = g.cooldownHours ?? 72;
+        return hoursSince(g.lastPostedAt) >= cool;
+      });
+
+      if (nowReady.length === 0) {
+        const p = document.createElement("p");
+        p.className = "small";
+        p.textContent = "אין כרגע קבוצות מוכנות – כנראה עדיין בתקופת קירור.";
+        readyGroups.appendChild(p);
+        return;
+      }
+
+      nowReady.forEach((g, index) => {
+        const row = document.createElement("div");
+        row.className = "group-row";
+
+        const header = document.createElement("div");
+        header.className = "group-row-header";
+
+        const title = document.createElement("div");
+        title.innerHTML = \`<strong>\${g.name || "קבוצה ללא שם"}</strong><br><span class="small">\${g.url}</span>\`;
+
+        const buttons = document.createElement("div");
+        const openBtn = document.createElement("button");
+        openBtn.className = "secondary";
+        openBtn.textContent = "פתח קבוצה";
+        openBtn.onclick = () => {
+          if (g.url) window.open(g.url, "_blank");
+        };
+        const markBtn = document.createElement("button");
+        markBtn.className = "primary";
+        markBtn.textContent = "סמן כפוסט";
+        markBtn.onclick = () => {
+          g.lastPostedAt = new Date().toISOString();
+          save(LS_GROUPS, groups);
+          renderGroups();
+          renderReadyGroups();
+        };
+        buttons.appendChild(openBtn);
+        buttons.appendChild(markBtn);
+
+        header.appendChild(title);
+        header.appendChild(buttons);
+        row.appendChild(header);
+
+        readyGroups.appendChild(row);
+      });
+    }
+
+    function renderTests() {
+      const tests = [
+        {
+          name: "Basic replacement",
+          template: "שלום {{שם}}",
+          vars: { "שם": "שחר" },
+          expected: "שלום שחר",
+        },
+        {
+          name: "Unknown variable becomes empty",
+          template: "מחיר: {{מחיר}} ש"ח,
+          vars: {},
+          expected: "מחיר:  ש"ח,
+        },
+        {
+          name: "Multiple variables",
+          template: "{{חדרים}} חד' ב{{עיר}}",
+          vars: { "חדרים": "4", "עיר": "באר יעקב" },
+          expected: "4 חד' בבאר יעקב",
+        },
+        {
+          name: "Spaces around key",
+          template: "שלום {{ שם }}",
+          vars: { "שם": "Idan" },
+          expected: "שלום Idan",
+        },
+        {
+          name: "No tokens",
+          template: "טקסט רגיל",
+          vars: { a: "b" },
+          expected: "טקסט רגיל",
+        },
+      ];
+
+      testsContainer.innerHTML = "";
+      tests.forEach((t) => {
+        const out = t.template.replace(/\\{\\{(.*?)\\}\\}/g, (_, key) => {
+          const k = String(key).trim();
+          return t.vars[k] ?? "";
+        });
+
+        const pass = out === t.expected;
+        const wrap = document.createElement("div");
+        wrap.style.border = "1px solid #e4e4e7";
+        wrap.style.borderRadius = "10px";
+        wrap.style.padding = "8px";
+        wrap.style.marginBottom = "6px";
+
+        wrap.innerHTML = \`
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
+            <span>\${pass ? "✅" : "❌"}</span>
+            <strong>\${t.name}</strong>
+            <span class="badge">\${pass ? "PASS" : "FAIL"}</span>
+          </div>
+          <div><strong>Template:</strong> \${t.template}</div>
+          <div><strong>Vars:</strong> \${JSON.stringify(t.vars)}</div>
+          <div><strong>Expected:</strong> \${t.expected}</div>
+          <div><strong>Output:</strong> \${out}</div>
+        \`;
+        testsContainer.appendChild(wrap);
+      });
+    }
+
+    // --------- Events ----------
+    presetSelect.onchange = () => {
+      currentPresetId = presetSelect.value;
+      renderPresetFields();
+      save(LS_PRESETS, presets);
+    };
+
+    presetTitle.oninput = () => {
+      const p = getCurrentPreset();
+      if (!p) return;
+      p.title = presetTitle.value;
+      save(LS_PRESETS, presets);
+      renderCompiledText();
+    };
+
+    presetBody.oninput = () => {
+      const p = getCurrentPreset();
+      if (!p) return;
+      p.body = presetBody.value;
+      save(LS_PRESETS, presets);
+      renderCompiledText();
+    };
+
+    presetTags.oninput = () => {
+      const p = getCurrentPreset();
+      if (!p) return;
+      p.hashtags = presetTags.value;
+      save(LS_PRESETS, presets);
+      renderCompiledText();
+    };
+
+    includeTitleCheckbox.onchange = () => {
+      renderCompiledText();
+    };
+
+    copyTextBtn.onclick = () => {
+      compiledTextEl.select();
+      document.execCommand("copy");
+      alert("הטקסט הועתק");
+    };
+
+    addPresetBtn.onclick = () => {
+      const id = "preset_" + Date.now();
+      presets.push({
+        id,
+        name: "תבנית חדשה",
+        title: "",
+        body: "טקסט מודעה...",
+        hashtags: "",
+      });
+      currentPresetId = id;
+      save(LS_PRESETS, presets);
+      renderPresetsOptions();
+      renderPresetFields();
+    };
+
+    deletePresetBtn.onclick = () => {
+      if (presets.length <= 1) {
+        alert("לא ניתן למחוק את כל התבניות");
+        return;
+      }
+      presets = presets.filter((p) => p.id !== currentPresetId);
+      currentPresetId = presets[0].id;
+      save(LS_PRESETS, presets);
+      renderPresetsOptions();
+      renderPresetFields();
+    };
+
+    resetVarsBtn.onclick = () => {
+      varsState = {
+        "עיר": "באר יעקב",
+        "מחיר": "1,750,000",
+        "חדרים": "4",
+        "שכונה": "האקליפטוס",
+      };
+      save(LS_VARS, varsState);
+      renderVars();
+      renderCompiledText();
+    };
+
+    addVarBtn.onclick = () => {
+      const key = prompt("שם משתנה חדש (למשל: קומה):");
+      if (!key) return;
+      if (varsState[key]) {
+        alert("כבר קיים משתנה בשם הזה");
+        return;
+      }
+      varsState[key] = "";
+      save(LS_VARS, varsState);
+      renderVars();
+      renderCompiledText();
+    };
+
+    addGroupBtn.onclick = () => {
+      groups.push({
+        name: "",
+        url: "https://www.facebook.com/groups/",
+        rules: "",
+        cooldownHours: 72,
+        lastPostedAt: null,
+      });
+      save(LS_GROUPS, groups);
+      renderGroups();
+      renderReadyGroups();
+    };
+
+    exportGroupsBtn.onclick = () => {
+      const header = ["name","url","cooldownHours","rules","lastPostedAt"].join(",");
+      const rows = groups.map((g) =>
+        [g.name, g.url, g.cooldownHours ?? 72, (g.rules || "").replace(/\\n/g," "), g.lastPostedAt || ""].join(",")
+      );
+      const csv = [header, ...rows].join("\\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "groups.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    importGroupsInput.onchange = (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const text = String(reader.result || "");
+        const [header, ...lines] = text.split(/\\r?\\n/).filter(Boolean);
+        const cols = header.split(",");
+        lines.forEach((line) => {
+          const parts = line.split(",");
+          const o = {};
+          cols.forEach((c, i) => (o[c] = parts[i] ?? ""));
+          groups.push({
+            name: o.name || "",
+            url: o.url || "",
+            cooldownHours: Number(o.cooldownHours || 72),
+            rules: o.rules || "",
+            lastPostedAt: o.lastPostedAt || null,
+          });
+        });
+        save(LS_GROUPS, groups);
+        renderGroups();
+        renderReadyGroups();
+      };
+      reader.readAsText(file);
+    };
+
+    copyFromRunBtn.onclick = () => {
+      compiledTextEl.select();
+      document.execCommand("copy");
+      alert("הטקסט הועתק");
+    };
+
+    // Tabs
+    document.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const value = tab.getAttribute("data-tab");
+        document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        document.querySelectorAll(".tab-body").forEach((body) => body.classList.add("hidden"));
+        document.getElementById("tab-" + value).classList.remove("hidden");
+      });
+    });
+
+    // Init
+    renderPresetsOptions();
+    renderPresetFields();
+    renderVars();
+    renderGroups();
+    renderReadyGroups();
+    renderTests();
+  </script>
+</body>
+</html>
