@@ -1,814 +1,813 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import {
-  Copy,
-  ClipboardCheck,
-  ExternalLink,
-  Plus,
-  Trash2,
-  Clock,
-  Upload,
-  Download,
-  ListChecks,
-  Wand2,
-  CheckCircle2,
-  XCircle,
-} from "lucide-react";
-
-// ---------- LocalStorage helpers ----------
-const LS_KEYS = {
-  GROUPS: "fb_group_poster_groups",
-  PRESETS: "fb_group_poster_presets",
-};
-
-function safeSave<T>(key: string, value: T) {
-  try {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // ignore
-  }
-}
-
-function safeLoad<T>(key: string, fallback: T): T {
-  try {
-    if (typeof window === "undefined") return fallback;
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-// ---------- Types ----------
-type Group = {
-  id: string;
-  name: string;
-  url: string;
-  rules?: string;
-  cooldownHours?: number;
-  lastPostedAt?: string | null;
-  active?: boolean;
-};
-
-type Preset = {
-  id: string;
-  name: string;
-  title?: string;
-  body: string;
-  hashtags?: string;
-  imageUrl?: string;
-  utmSource?: string;
-  utmCampaign?: string;
-  utmMedium?: string;
-};
-
-type TestCase = {
-  name: string;
-  template: string;
-  vars: Record<string, string>;
-  expected: string;
-};
-
-function uid() {
-  return Math.random().toString(36).slice(2);
-}
-
-// ---------- Core replace function (pure) ----------
-function replaceWithVars(template: string, vars: Record<string, string>): string {
-  if (!template) return "";
-  return template.replace(/\{\{(.*?)\}\}/g, (_, key) => {
-    const k = String(key).trim();
-    return vars[k] ?? "";
-  });
-}
-
-// ---------- Default data ----------
-const defaultPreset: Preset = {
-  id: uid(),
-  name: "מודעת בסיס",
-  title: "להתאהב ממבט ראשון",
-  body:
-    "דירת 4 חדרים משופצת, מוארת ומושקעת – כניסה מיידית!\n\n" +
-    "✔ מרפסת שמש \n✔ חניה ומחסן בטאבו \n✔ מטבח משודרג עם המון אחסון \n\n" +
-    "לפרטים והתרשמות: 050-000-0000",
-  hashtags: "#נדלן #דירות_למכירה #באר_יעקב",
-  imageUrl: "",
-  utmSource: "facebook",
-  utmCampaign: "groups",
-  utmMedium: "organic",
-};
-
-// ---------- Component ----------
-export default function FBGroupAssistant() {
-  // groups & presets
-  const [groups, setGroups] = useState<Group[]>(() => safeLoad(LS_KEYS.GROUPS, [] as Group[]));
-  const [presets, setPresets] = useState<Preset[]>(() => safeLoad(LS_KEYS.PRESETS, [defaultPreset] as Preset[]));
-  const [currentPresetId, setCurrentPresetId] = useState<string>(() => presets[0]?.id || "");
-
-  const currentPreset = useMemo(
-    () => presets.find((p) => p.id === currentPresetId) || presets[0],
-    [presets, currentPresetId]
-  );
-
-  // variable values used in templates
-  const [vars, setVars] = useState<Record<string, string>>({
-    עיר: "באר יעקב",
-    מחיר: "1,750,000",
-    חדרים: "4",
-    שכונה: "האקליפטוס",
-  });
-
-  const [includeTitle, setIncludeTitle] = useState(true);
-  const [file, setFile] = useState<File | null>(null);
-
-  // persist to localStorage
-  useEffect(() => {
-    safeSave(LS_KEYS.GROUPS, groups);
-  }, [groups]);
-
-  useEffect(() => {
-    safeSave(LS_KEYS.PRESETS, presets);
-  }, [presets]);
-
-  // instance bound replace helper
-  const replaceVars = (text?: string) => replaceWithVars(text || "", vars);
-
-  // compiled post text
-  const compiledText = useMemo(() => {
-    if (!currentPreset) return "";
-    const titlePart = includeTitle && currentPreset.title ? `【${replaceVars(currentPreset.title)}】\n\n` : "";
-    const bodyPart = replaceVars(currentPreset.body);
-    const tagsPart = currentPreset.hashtags ? `\n\n${currentPreset.hashtags}` : "";
-    return `${titlePart}${bodyPart}${tagsPart}`.trim();
-  }, [currentPreset, includeTitle, vars]);
-
-  function copyToClipboard(text: string) {
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text);
-      } else {
-        // fallback
-        const textarea = document.createElement("textarea");
-        textarea.value = text;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
-      }
-    } catch {
-      // ignore
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>מנהל פוסטים לקבוצות פייסבוק (ללא אוטומציה)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f4f5;
+      margin: 0;
+      padding: 16px;
     }
-  }
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    label {
+      font-size: 13px;
+      font-weight: 500;
+      display: block;
+      margin-bottom: 4px;
+    }
+    input, textarea, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #d4d4d8;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button.primary {
+      background: #0f766e;
+      color: #fff;
+    }
+    button.secondary {
+      background: #e4e4e7;
+      color: #18181b;
+    }
+    button.danger {
+      background: #dc2626;
+      color: #fff;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e4e4e7;
+      font-size: 11px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0,2fr) minmax(0,1.3fr);
+      gap: 16px;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+      font-size: 12px;
+    }
+    .chip {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #f4f4f5;
+      border: 1px solid #e4e4e7;
+    }
+    .group-row {
+      border: 1px solid #e4e4e7;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: #fafafa;
+    }
+    .group-row-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      gap: 8px;
+    }
+    .small {
+      font-size: 12px;
+      color: #52525b;
+    }
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 6px 0;
+      border-radius: 999px;
+      border: 1px solid #e4e4e7;
+      font-size: 13px;
+      cursor: pointer;
+      background: #fafafa;
+    }
+    .tab.active {
+      background: #0f766e;
+      color: #fff;
+      border-color: #0f766e;
+    }
+    .hidden {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .grid-2 {
+        grid-template-columns: minmax(0,1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h1 style="margin:0;font-size:22px;">מנהל פוסטים לקבוצות פייסבוק (ללא אוטומציה)</h1>
+        <span class="badge">שומר על כללי פייסבוק</span>
+      </div>
+    </div>
 
-  function openGroup(g: Group) {
-    if (!g.url) return;
-    window.open(g.url, "_blank", "noopener,noreferrer");
-  }
+    <div class="card">
+      <div class="tabs">
+        <div class="tab active" data-tab="compose">✍️ ניסוח מודעה</div>
+        <div class="tab" data-tab="groups">👥 קבוצות</div>
+        <div class="tab" data-tab="run">🚀 ריצת פרסום</div>
+        <div class="tab" data-tab="tests">✅ בדיקות</div>
+      </div>
 
-  function markPosted(groupId: string) {
-    setGroups((prev) =>
-      prev.map((g) => (g.id === groupId ? { ...g, lastPostedAt: new Date().toISOString() } : g))
-    );
-  }
+      <!-- טאב ניסוח מודעה -->
+      <div class="tab-body" id="tab-compose">
+        <div class="grid-2">
+          <div>
+            <h2>תבנית מודעה</h2>
+            <div class="row">
+              <div style="flex:1">
+                <label>בחירת תבנית</label>
+                <select id="presetSelect"></select>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:6px;">
+                <button class="secondary" id="addPresetBtn">➕ תבנית חדשה</button>
+                <button class="danger" id="deletePresetBtn">🗑 מחק</button>
+              </div>
+            </div>
 
-  function hoursSince(iso?: string | null): number {
-    if (!iso) return Infinity;
-    const diff = Date.now() - new Date(iso).getTime();
-    return Math.floor(diff / (1000 * 60 * 60));
-  }
+            <div style="margin-top:10px;">
+              <label>
+                <input type="checkbox" id="includeTitle" checked />
+                לכלול כותרת בתחילת המודעה
+              </label>
+              <input id="presetTitle" placeholder="כותרת (למשל: להתאהב ממבט ראשון)" />
+            </div>
 
-  const readyGroups = useMemo(() => {
-    return groups.filter((g) => {
-      if (g.active === false) return false;
-      const cooldown = g.cooldownHours ?? 72;
-      return hoursSince(g.lastPostedAt) >= cooldown;
-    });
-  }, [groups]);
+            <div style="margin-top:10px;">
+              <label>גוף המודעה (תומך במשתנים כמו {{עיר}} {{מחיר}} {{חדרים}})</label>
+              <textarea id="presetBody"></textarea>
+            </div>
 
-  function addGroup() {
-    setGroups((prev) => [
-      ...prev,
+            <div style="margin-top:10px;">
+              <label>האשטגים</label>
+              <input id="presetTags" placeholder="#נדלן #דירות_למכירה" />
+            </div>
+          </div>
+
+          <div>
+            <h2>משתנים מהירים</h2>
+            <div id="varsContainer"></div>
+            <div style="margin-top:8px;" class="row">
+              <button class="secondary" id="resetVarsBtn">איפוס ברירות מחדל</button>
+              <button class="secondary" id="addVarBtn">➕ הוסף משתנה</button>
+            </div>
+
+            <div style="margin-top:16px;">
+              <h2>טקסט מוכן לפרסום</h2>
+              <textarea id="compiledText" readonly></textarea>
+              <div style="margin-top:8px;" class="row">
+                <button class="primary" id="copyTextBtn">📋 העתק טקסט</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- טאב קבוצות -->
+      <div class="tab-body hidden" id="tab-groups">
+        <h2>ניהול קבוצות</h2>
+        <div class="row" style="margin-bottom:10px;">
+          <button class="primary" id="addGroupBtn">➕ הוסף קבוצה</button>
+          <button class="secondary" id="exportGroupsBtn">⬇ יצוא CSV</button>
+          <label class="small">
+            ייבוא CSV:
+            <input type="file" id="importGroupsInput" accept=".csv" />
+          </label>
+        </div>
+        <div id="groupsContainer"></div>
+      </div>
+
+      <!-- טאב ריצה -->
+      <div class="tab-body hidden" id="tab-run">
+        <h2>ריצת פרסום ידנית – צעד אחר צעד</h2>
+        <ol class="small">
+          <li>בלשונית "ניסוח מודעה" – לחץ על "📋 העתק טקסט".</li>
+          <li>כאן, לחץ על "פתח קבוצה" עבור כל קבוצה מוכנה.</li>
+          <li>הדבק את הטקסט בפייסבוק, הוסף תמונה אם צריך ופרסם.</li>
+          <li>אחרי הפרסום, לחץ "סמן כפוסט" כדי לתעד תאריך.</li>
+        </ol>
+        <div style="margin-top:10px;">
+          <button class="secondary" id="copyFromRunBtn">📋 העתק טקסט שוב</button>
+        </div>
+        <h3 style="margin-top:16px;">קבוצות מוכנות (לא בתקופת קירור)</h3>
+        <div id="readyGroups"></div>
+      </div>
+
+      <!-- טאב בדיקות -->
+      <div class="tab-body hidden" id="tab-tests">
+        <h2>בדיקות לפונקציית החלפת משתנים</h2>
+        <div id="testsContainer" class="small"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>טיפים לקצב פרסום נכון</h2>
+      <ul class="small">
+        <li>קרא את כללי כל קבוצה (מחיר חובה, ללא קישורים וכו').</li>
+        <li>השאר מרווח זמן בין פרסומים דומים כדי להימנע מחסימות.</li>
+        <li>עדיף לפרסם קודם בעמוד העסקי שלך ואז לשתף לקבוצות.</li>
+        <li>השתמש ב-UTM בקישורים כדי למדוד תנועה בגוגל אנליטיקס.</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // --------- State & helpers ----------
+    const LS_GROUPS = "fb_group_poster_groups_simple";
+    const LS_PRESETS = "fb_group_poster_presets_simple";
+    const LS_VARS = "fb_group_poster_vars_simple";
+
+    function load(key, fallback) {
+      try {
+        const v = localStorage.getItem(key);
+        return v ? JSON.parse(v) : fallback;
+      } catch {
+        return fallback;
+      }
+    }
+    function save(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch {}
+    }
+
+    let groups = load(LS_GROUPS, []);
+    let presets = load(LS_PRESETS, [
       {
-        id: uid(),
+        id: "default",
+        name: "מודעת בסיס",
+        title: "להתאהב ממבט ראשון",
+        body:
+          "דירת 4 חדרים משופצת, מוארת ומושקעת – כניסה מיידית!\\n\\n" +
+          "✔ מרפסת שמש \\n✔ חניה ומחסן בטאבו \\n✔ מטבח משודרג עם המון אחסון \\n\\n" +
+          "לפרטים והתרשמות: 050-000-0000",
+        hashtags: "#נדלן #דירות_למכירה #באר_יעקב",
+      },
+    ]);
+    let currentPresetId = presets[0]?.id || "default";
+    let varsState = load(LS_VARS, {
+      "עיר": "באר יעקב",
+      "מחיר": "1,750,000",
+      "חדרים": "4",
+      "שכונה": "האקליפטוס",
+    });
+
+    function replaceVars(text) {
+      if (!text) return "";
+      return text.replace(/\{\{(.*?)\}\}/g, function(_, key) {
+        var k = String(key).trim();
+        return varsState[k] || "";
+      });
+    }
+
+    function hoursSince(iso) {
+      if (!iso) return Infinity;
+      var diff = Date.now() - new Date(iso).getTime();
+      return Math.floor(diff / (1000 * 60 * 60));
+    }
+
+    // --------- DOM refs ----------
+    var presetSelect = document.getElementById("presetSelect");
+    var presetTitle = document.getElementById("presetTitle");
+    var presetBody = document.getElementById("presetBody");
+    var presetTags = document.getElementById("presetTags");
+    var includeTitleCheckbox = document.getElementById("includeTitle");
+    var varsContainer = document.getElementById("varsContainer");
+    var compiledTextEl = document.getElementById("compiledText");
+    var copyTextBtn = document.getElementById("copyTextBtn");
+    var addPresetBtn = document.getElementById("addPresetBtn");
+    var deletePresetBtn = document.getElementById("deletePresetBtn");
+    var resetVarsBtn = document.getElementById("resetVarsBtn");
+    var addVarBtn = document.getElementById("addVarBtn");
+    var addGroupBtn = document.getElementById("addGroupBtn");
+    var exportGroupsBtn = document.getElementById("exportGroupsBtn");
+    var importGroupsInput = document.getElementById("importGroupsInput");
+    var groupsContainer = document.getElementById("groupsContainer");
+    var readyGroups = document.getElementById("readyGroups");
+    var copyFromRunBtn = document.getElementById("copyFromRunBtn");
+    var testsContainer = document.getElementById("testsContainer");
+
+    // --------- Rendering ----------
+    function getCurrentPreset() {
+      return presets.find(function(p) { return p.id === currentPresetId; }) || presets[0];
+    }
+
+    function renderPresetsOptions() {
+      presetSelect.innerHTML = "";
+      presets.forEach(function(p) {
+        var opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.name;
+        presetSelect.appendChild(opt);
+      });
+      presetSelect.value = currentPresetId;
+    }
+
+    function renderPresetFields() {
+      var p = getCurrentPreset();
+      if (!p) return;
+      presetTitle.value = p.title || "";
+      presetBody.value = p.body || "";
+      presetTags.value = p.hashtags || "";
+      renderCompiledText();
+    }
+
+    function renderVars() {
+      varsContainer.innerHTML = "";
+      Object.keys(varsState).forEach(function(key) {
+        var div = document.createElement("div");
+        div.className = "row";
+        div.style.marginBottom = "6px";
+
+        var labelDiv = document.createElement("div");
+        labelDiv.style.flex = "0 0 120px";
+        labelDiv.innerHTML =
+          '<div class="chip">{{' + key + '}}</div>' +
+          '<div class="small">' + key + "</div>";
+
+        var inputDiv = document.createElement("div");
+        inputDiv.style.flex = "1";
+        var inp = document.createElement("input");
+        inp.value = varsState[key];
+        inp.oninput = function(e) {
+          varsState[key] = e.target.value;
+          save(LS_VARS, varsState);
+          renderCompiledText();
+        };
+        inputDiv.appendChild(inp);
+
+        var btnDiv = document.createElement("div");
+        btnDiv.style.flex = "0 0 auto";
+        var delBtn = document.createElement("button");
+        delBtn.textContent = "✖";
+        delBtn.className = "secondary";
+        delBtn.onclick = function() {
+          delete varsState[key];
+          save(LS_VARS, varsState);
+          renderVars();
+          renderCompiledText();
+        };
+        btnDiv.appendChild(delBtn);
+
+        div.appendChild(labelDiv);
+        div.appendChild(inputDiv);
+        div.appendChild(btnDiv);
+        varsContainer.appendChild(div);
+      });
+    }
+
+    function renderCompiledText() {
+      var p = getCurrentPreset();
+      if (!p) return;
+      var includeTitle = includeTitleCheckbox.checked;
+      var titlePart = includeTitle && p.title ? "【" + replaceVars(p.title) + "】\\n\\n" : "";
+      var bodyPart = replaceVars(p.body || "");
+      var tagsPart = p.hashtags ? "\\n\\n" + p.hashtags : "";
+      compiledTextEl.value = (titlePart + bodyPart + tagsPart).trim();
+    }
+
+    function renderGroups() {
+      groupsContainer.innerHTML = "";
+      groups.forEach(function(g, index) {
+        var row = document.createElement("div");
+        row.className = "group-row";
+
+        var header = document.createElement("div");
+        header.className = "group-row-header";
+
+        var title = document.createElement("div");
+        title.innerHTML =
+          "<strong>" + (g.name || "קבוצה ללא שם") + "</strong><br>" +
+          '<span class="small">' + (g.url || "") + "</span>";
+
+        var buttons = document.createElement("div");
+        var openBtn = document.createElement("button");
+        openBtn.className = "secondary";
+        openBtn.textContent = "פתח";
+        openBtn.onclick = function() {
+          if (g.url) window.open(g.url, "_blank");
+        };
+        var delBtn = document.createElement("button");
+        delBtn.className = "danger";
+        delBtn.textContent = "🗑";
+        delBtn.onclick = function() {
+          groups.splice(index, 1);
+          save(LS_GROUPS, groups);
+          renderGroups();
+          renderReadyGroups();
+        };
+        buttons.appendChild(openBtn);
+        buttons.appendChild(delBtn);
+
+        header.appendChild(title);
+        header.appendChild(buttons);
+        row.appendChild(header);
+
+        var nameInput = document.createElement("input");
+        nameInput.placeholder = "שם הקבוצה";
+        nameInput.value = g.name || "";
+        nameInput.oninput = function(e) {
+          g.name = e.target.value;
+          save(LS_GROUPS, groups);
+          renderGroups();
+          renderReadyGroups();
+        };
+        row.appendChild(nameInput);
+
+        var urlInput = document.createElement("input");
+        urlInput.placeholder = "קישור לקבוצה";
+        urlInput.value = g.url || "";
+        urlInput.oninput = function(e) {
+          g.url = e.target.value;
+          save(LS_GROUPS, groups);
+          renderReadyGroups();
+        };
+        row.appendChild(urlInput);
+
+        var rulesInput = document.createElement("textarea");
+        rulesInput.placeholder = "הערות/כללי הקבוצה (ללא קישורים? מחיר חובה? וכו')";
+        rulesInput.value = g.rules || "";
+        rulesInput.oninput = function(e) {
+          g.rules = e.target.value;
+          save(LS_GROUPS, groups);
+        };
+        row.appendChild(rulesInput);
+
+        var smallRow = document.createElement("div");
+        smallRow.className = "small";
+        var cool = g.cooldownHours != null ? g.cooldownHours : 72;
+        var last = g.lastPostedAt
+          ? "פורסם לאחרונה: " + new Date(g.lastPostedAt).toLocaleString("he-IL")
+          : "טרם פורסם";
+        smallRow.textContent = "שעות קירור: " + cool + " | " + last;
+        row.appendChild(smallRow);
+
+        groupsContainer.appendChild(row);
+      });
+    }
+
+    function renderReadyGroups() {
+      readyGroups.innerHTML = "";
+      var nowReady = groups.filter(function(g) {
+        var cool = g.cooldownHours != null ? g.cooldownHours : 72;
+        return hoursSince(g.lastPostedAt) >= cool;
+      });
+
+      if (nowReady.length === 0) {
+        var p = document.createElement("p");
+        p.className = "small";
+        p.textContent = "אין כרגע קבוצות מוכנות – כנראה עדיין בתקופת קירור.";
+        readyGroups.appendChild(p);
+        return;
+      }
+
+      nowReady.forEach(function(g) {
+        var row = document.createElement("div");
+        row.className = "group-row";
+
+        var header = document.createElement("div");
+        header.className = "group-row-header";
+
+        var title = document.createElement("div");
+        title.innerHTML =
+          "<strong>" + (g.name || "קבוצה ללא שם") + "</strong><br>" +
+          '<span class="small">' + (g.url || "") + "</span>";
+
+        var buttons = document.createElement("div");
+        var openBtn = document.createElement("button");
+        openBtn.className = "secondary";
+        openBtn.textContent = "פתח קבוצה";
+        openBtn.onclick = function() {
+          if (g.url) window.open(g.url, "_blank");
+        };
+        var markBtn = document.createElement("button");
+        markBtn.className = "primary";
+        markBtn.textContent = "סמן כפוסט";
+        markBtn.onclick = function() {
+          g.lastPostedAt = new Date().toISOString();
+          save(LS_GROUPS, groups);
+          renderGroups();
+          renderReadyGroups();
+        };
+        buttons.appendChild(openBtn);
+        buttons.appendChild(markBtn);
+
+        header.appendChild(title);
+        header.appendChild(buttons);
+        row.appendChild(header);
+
+        readyGroups.appendChild(row);
+      });
+    }
+
+    // --------- Tests ----------
+    function renderTests() {
+      var tests = [
+        {
+          name: "Basic replacement",
+          template: "שלום {{שם}}",
+          vars: { "שם": "שחר" },
+          expected: "שלום שחר",
+        },
+        {
+          name: "Unknown variable becomes empty",
+          template: "מחיר: {{מחיר}} ש\"ח",
+          vars: {},
+          expected: "מחיר:  ש\"ח",
+        },
+        {
+          name: "Multiple variables",
+          template: "{{חדרים}} חד' ב{{עיר}}",
+          vars: { "חדרים": "4", "עיר": "באר יעקב" },
+          expected: "4 חד' בבאר יעקב",
+        },
+        {
+          name: "Spaces around key",
+          template: "שלום {{ שם }}",
+          vars: { "שם": "Idan" },
+          expected: "שלום Idan",
+        },
+        {
+          name: "No tokens",
+          template: "טקסט רגיל",
+          vars: { a: "b" },
+          expected: "טקסט רגיל",
+        },
+        {
+          name: "Repeated token",
+          template: "{{עיר}} {{עיר}}",
+          vars: { "עיר": "באר יעקב" },
+          expected: "באר יעקב באר יעקב",
+        },
+      ];
+
+      testsContainer.innerHTML = "";
+      tests.forEach(function(t) {
+        var out = t.template.replace(/\{\{(.*?)\}\}/g, function(_, key) {
+          var k = String(key).trim();
+          return t.vars[k] || "";
+        });
+        var pass = out === t.expected;
+
+        var wrap = document.createElement("div");
+        wrap.style.border = "1px solid #e4e4e7";
+        wrap.style.borderRadius = "10px";
+        wrap.style.padding = "8px";
+        wrap.style.marginBottom = "6px";
+
+        wrap.innerHTML =
+          '<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">' +
+          (pass ? "✅" : "❌") +
+          "<strong style=\"margin-right:6px;\">" + t.name + "</strong>" +
+          '<span class="badge">' + (pass ? "PASS" : "FAIL") + "</span>" +
+          "</div>" +
+          "<div><strong>Template:</strong> " + t.template + "</div>" +
+          "<div><strong>Vars:</strong> " + JSON.stringify(t.vars) + "</div>" +
+          "<div><strong>Expected:</strong> " + t.expected + "</div>" +
+          "<div><strong>Output:</strong> " + out + "</div>";
+
+        testsContainer.appendChild(wrap);
+      });
+    }
+
+    // --------- Events ----------
+    presetSelect.onchange = function() {
+      currentPresetId = presetSelect.value;
+      save(LS_PRESETS, presets);
+      renderPresetFields();
+    };
+
+    presetTitle.oninput = function() {
+      var p = getCurrentPreset();
+      if (!p) return;
+      p.title = presetTitle.value;
+      save(LS_PRESETS, presets);
+      renderCompiledText();
+    };
+
+    presetBody.oninput = function() {
+      var p = getCurrentPreset();
+      if (!p) return;
+      p.body = presetBody.value;
+      save(LS_PRESETS, presets);
+      renderCompiledText();
+    };
+
+    presetTags.oninput = function() {
+      var p = getCurrentPreset();
+      if (!p) return;
+      p.hashtags = presetTags.value;
+      save(LS_PRESETS, presets);
+      renderCompiledText();
+    };
+
+    includeTitleCheckbox.onchange = function() {
+      renderCompiledText();
+    };
+
+    copyTextBtn.onclick = function() {
+      compiledTextEl.select();
+      document.execCommand("copy");
+      alert("הטקסט הועתק");
+    };
+
+    addPresetBtn.onclick = function() {
+      var id = "preset_" + Date.now();
+      presets.push({
+        id: id,
+        name: "תבנית חדשה",
+        title: "",
+        body: "טקסט מודעה...",
+        hashtags: "",
+      });
+      currentPresetId = id;
+      save(LS_PRESETS, presets);
+      renderPresetsOptions();
+      renderPresetFields();
+    };
+
+    deletePresetBtn.onclick = function() {
+      if (presets.length <= 1) {
+        alert("לא ניתן למחוק את כל התבניות");
+        return;
+      }
+      presets = presets.filter(function(p) { return p.id !== currentPresetId; });
+      currentPresetId = presets[0].id;
+      save(LS_PRESETS, presets);
+      renderPresetsOptions();
+      renderPresetFields();
+    };
+
+    resetVarsBtn.onclick = function() {
+      varsState = {
+        "עיר": "באר יעקב",
+        "מחיר": "1,750,000",
+        "חדרים": "4",
+        "שכונה": "האקליפטוס",
+      };
+      save(LS_VARS, varsState);
+      renderVars();
+      renderCompiledText();
+    };
+
+    addVarBtn.onclick = function() {
+      var key = prompt("שם משתנה חדש (למשל: קומה):");
+      if (!key) return;
+      if (varsState[key]) {
+        alert("כבר קיים משתנה בשם הזה");
+        return;
+      }
+      varsState[key] = "";
+      save(LS_VARS, varsState);
+      renderVars();
+      renderCompiledText();
+    };
+
+    addGroupBtn.onclick = function() {
+      groups.push({
         name: "",
         url: "https://www.facebook.com/groups/",
         rules: "",
         cooldownHours: 72,
         lastPostedAt: null,
-        active: true,
-      },
-    ]);
-  }
-
-  function removeGroup(id: string) {
-    setGroups((prev) => prev.filter((g) => g.id !== id));
-  }
-
-  function addPreset() {
-    const p: Preset = {
-      id: uid(),
-      name: "מודעה חדשה",
-      body: "טקסט מודעה...",
-    };
-    setPresets((prev) => [...prev, p]);
-    setCurrentPresetId(p.id);
-  }
-
-  function removePreset(id: string) {
-    const index = presets.findIndex((p) => p.id === id);
-    if (index === -1) return;
-    const next = presets.filter((p) => p.id !== id);
-    setPresets(next);
-    if (currentPresetId === id) setCurrentPresetId(next[0]?.id || "");
-  }
-
-  function exportGroupsCSV() {
-    const header = ["name", "url", "cooldownHours", "rules", "lastPostedAt", "active"].join(",");
-    const rows = groups.map((g) =>
-      [
-        g.name,
-        g.url,
-        g.cooldownHours ?? 72,
-        (g.rules || "").replace(/\n/g, " "),
-        g.lastPostedAt || "",
-        g.active !== false,
-      ].join(",")
-    );
-    const csv = [header, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "groups.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function importGroupsCSV(file: File) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result || "");
-      const [header, ...lines] = text.split(/\r?\n/).filter(Boolean);
-      const cols = header.split(",");
-      const newGroups: Group[] = lines.map((line) => {
-        const parts = line.split(",");
-        const obj: Record<string, string> = {};
-        cols.forEach((c, i) => {
-          obj[c] = parts[i] ?? "";
-        });
-        return {
-          id: uid(),
-          name: obj.name || "",
-          url: obj.url || "",
-          cooldownHours: Number(obj.cooldownHours || 72),
-          rules: obj.rules || "",
-          lastPostedAt: obj.lastPostedAt || null,
-          active: String(obj.active || "true") !== "false",
-        } as Group;
       });
-      setGroups((prev) => [...prev, ...newGroups]);
+      save(LS_GROUPS, groups);
+      renderGroups();
+      renderReadyGroups();
     };
-    reader.readAsText(file);
-  }
 
-  // ---------- Test cases for replaceWithVars ----------
-  const tests: TestCase[] = [
-    {
-      name: "Basic replacement",
-      template: "שלום {{שם}}",
-      vars: { שם: "שחר" },
-      expected: "שלום שחר",
-    },
-    {
-      name: "Unknown variable becomes empty",
-      template: "מחיר: {{מחיר}} ש\"ח",
-      vars: {},
-      expected: "מחיר:  ש\"ח",
-    },
-    {
-      name: "Multiple variables",
-      template: "{{חדרים}} חד' ב{{עיר}}",
-      vars: { חדרים: "4", עיר: "באר יעקב" },
-      expected: "4 חד' בבאר יעקב",
-    },
-    {
-      name: "Spaces around key",
-      template: "שלום {{ שם }}",
-      vars: { שם: "Idan" },
-      expected: "שלום Idan",
-    },
-    {
-      name: "No tokens",
-      template: "טקסט רגיל",
-      vars: { a: "b" },
-      expected: "טקסט רגיל",
-    },
-    {
-      name: "Repeated token",
-      template: "{{עיר}} {{עיר}}",
-      vars: { עיר: "באר יעקב" },
-      expected: "באר יעקב באר יעקב",
-    },
-  ];
+    exportGroupsBtn.onclick = function() {
+      var header = ["name","url","cooldownHours","rules","lastPostedAt"].join(",");
+      var rows = groups.map(function(g) {
+        return [
+          g.name,
+          g.url,
+          g.cooldownHours != null ? g.cooldownHours : 72,
+          (g.rules || "").replace(/\n/g," "),
+          g.lastPostedAt || "",
+        ].join(",");
+      });
+      var csv = [header].concat(rows).join("\n");
+      var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "groups.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    };
 
-  const testResults = useMemo(
-    () =>
-      tests.map((t) => {
-        const out = replaceWithVars(t.template, t.vars);
-        return { ...t, out, pass: out === t.expected };
-      }),
-    []
-  );
+    importGroupsInput.onchange = function(e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function() {
+        var text = String(reader.result || "");
+        var lines = text.split(/\r?\n/).filter(Boolean);
+        if (!lines.length) return;
+        var header = lines[0];
+        var cols = header.split(",");
+        lines.slice(1).forEach(function(line) {
+          var parts = line.split(",");
+          var obj = {};
+          cols.forEach(function(c, i) { obj[c] = parts[i] || ""; });
+          groups.push({
+            name: obj.name || "",
+            url: obj.url || "",
+            cooldownHours: Number(obj.cooldownHours || 72),
+            rules: obj.rules || "",
+            lastPostedAt: obj.lastPostedAt || null,
+          });
+        });
+        save(LS_GROUPS, groups);
+        renderGroups();
+        renderReadyGroups();
+      };
+      reader.readAsText(file);
+    };
 
-  // ---------- JSX ----------
-  return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">מנהל פוסטים לקבוצות פייסבוק (ללא אוטומציה)</h1>
-        <Badge>שומר על כללי פייסבוק</Badge>
-      </div>
+    copyFromRunBtn.onclick = function() {
+      compiledTextEl.select();
+      document.execCommand("copy");
+      alert("הטקסט הועתק");
+    };
 
-      <Tabs defaultValue="compose" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="compose">✍️ ניסוח מודעה</TabsTrigger>
-          <TabsTrigger value="groups">👥 קבוצות</TabsTrigger>
-          <TabsTrigger value="run">🚀 ריצת פרסום ידנית</TabsTrigger>
-          <TabsTrigger value="tests">✅ בדיקות</TabsTrigger>
-        </TabsList>
+    // Tabs switching
+    document.querySelectorAll(".tab").forEach(function(tab) {
+      tab.addEventListener("click", function() {
+        var value = tab.getAttribute("data-tab");
+        document.querySelectorAll(".tab").forEach(function(t) {
+          t.classList.remove("active");
+        });
+        tab.classList.add("active");
+        document.querySelectorAll(".tab-body").forEach(function(body) {
+          body.classList.add("hidden");
+        });
+        document.getElementById("tab-" + value).classList.remove("hidden");
+      });
+    });
 
-        {/* Compose */}
-        <TabsContent value="compose">
-          <Card>
-            <CardHeader>
-              <CardTitle>מודעה</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="col-span-2 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Select value={currentPresetId} onValueChange={setCurrentPresetId}>
-                      <SelectTrigger className="w-64">
-                        <SelectValue placeholder="בחר תבנית" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {presets.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button variant="secondary" onClick={addPreset}>
-                      <Plus className="w-4 h-4 mr-1" /> תבנית חדשה
-                    </Button>
-                    {currentPreset && (
-                      <Button
-                        variant="destructive"
-                        onClick={() => removePreset(currentPreset.id)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-1" /> מחק
-                      </Button>
-                    )}
-                  </div>
-
-                  {currentPreset && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          checked={includeTitle}
-                          onCheckedChange={(v) => setIncludeTitle(Boolean(v))}
-                        />
-                        <Input
-                          placeholder="כותרת (אופציונלי, תומך במשתנים {{עיר}} {{מחיר}}...)"
-                          value={currentPreset.title || ""}
-                          onChange={(e) =>
-                            setPresets((prev) =>
-                              prev.map((p) =>
-                                p.id === currentPreset.id
-                                  ? { ...p, title: e.target.value }
-                                  : p
-                              )
-                            )
-                          }
-                        />
-                      </div>
-                      <Textarea
-                        className="min-h-[160px]"
-                        placeholder="גוף המודעה – תומך במשתנים למשל {{עיר}}, {{מחיר}}, {{חדרים}}, {{שכונה}}"
-                        value={currentPreset.body}
-                        onChange={(e) =>
-                          setPresets((prev) =>
-                            prev.map((p) =>
-                              p.id === currentPreset.id
-                                ? { ...p, body: e.target.value }
-                                : p
-                            )
-                          )
-                        }
-                      />
-                      <Input
-                        placeholder="האשטגים (#)"
-                        value={currentPreset.hashtags || ""}
-                        onChange={(e) =>
-                          setPresets((prev) =>
-                            prev.map((p) =>
-                              p.id === currentPreset.id
-                                ? { ...p, hashtags: e.target.value }
-                                : p
-                            )
-                          )
-                        }
-                      />
-                      <Input
-                        placeholder="קישור לתמונה (לא חובה)"
-                        value={currentPreset.imageUrl || ""}
-                        onChange={(e) =>
-                          setPresets((prev) =>
-                            prev.map((p) =>
-                              p.id === currentPreset.id
-                                ? { ...p, imageUrl: e.target.value }
-                                : p
-                            )
-                          )
-                        }
-                      />
-
-                      <div className="grid grid-cols-3 gap-3">
-                        <Input
-                          placeholder="utm_source"
-                          value={currentPreset.utmSource || ""}
-                          onChange={(e) =>
-                            setPresets((prev) =>
-                              prev.map((p) =>
-                                p.id === currentPreset.id
-                                  ? { ...p, utmSource: e.target.value }
-                                  : p
-                              )
-                            )
-                          }
-                        />
-                        <Input
-                          placeholder="utm_campaign"
-                          value={currentPreset.utmCampaign || ""}
-                          onChange={(e) =>
-                            setPresets((prev) =>
-                              prev.map((p) =>
-                                p.id === currentPreset.id
-                                  ? { ...p, utmCampaign: e.target.value }
-                                  : p
-                              )
-                            )
-                          }
-                        />
-                        <Input
-                          placeholder="utm_medium"
-                          value={currentPreset.utmMedium || ""}
-                          onChange={(e) =>
-                            setPresets((prev) =>
-                              prev.map((p) =>
-                                p.id === currentPreset.id
-                                  ? { ...p, utmMedium: e.target.value }
-                                  : p
-                              )
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="col-span-1 space-y-3">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">משתנים מהירים</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {Object.keys(vars).map((k) => (
-                        <div key={k} className="flex items-center gap-2">
-                          <Badge
-                            variant="secondary"
-                            className="min-w-20 text-center"
-                          >
-                            {"{{" + k + "}}"}
-                          </Badge>
-                          <Input
-                            value={vars[k]}
-                            onChange={(e) => setVars({ ...vars, [k]: e.target.value })}
-                          />
-                        </div>
-                      ))}
-                      <div className="flex gap-2">
-                        <Button
-                          variant="secondary"
-                          onClick={() => setVars({ ...vars, חדש: "" })}
-                        >
-                          <Plus className="w-4 h-4 mr-1" /> הוסף משתנה
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() =>
-                            setVars({
-                              עיר: "באר יעקב",
-                              מחיר: "1,750,000",
-                              חדרים: "4",
-                              שכונה: "האקליפטוס",
-                            })
-                          }
-                        >
-                          איפוס
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">טקסט מוכן לפרסום</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <Textarea className="min-h-[180px]" readOnly value={compiledText} />
-                      <div className="flex gap-2">
-                        <Button onClick={() => copyToClipboard(compiledText)}>
-                          <Copy className="w-4 h-4 mr-1" /> העתק טקסט
-                        </Button>
-                        {currentPreset?.imageUrl && (
-                          <Button
-                            onClick={() =>
-                              window.open(currentPreset.imageUrl as string, "_blank")
-                            }
-                          >
-                            <ExternalLink className="w-4 h-4 mr-1" /> פתח תמונה
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Groups */}
-        <TabsContent value="groups">
-          <Card>
-            <CardHeader>
-              <CardTitle>ניהול קבוצות</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Button onClick={addGroup}>
-                  <Plus className="w-4 h-4 mr-1" /> הוסף קבוצה
-                </Button>
-                <Button variant="secondary" onClick={exportGroupsCSV}>
-                  <Download className="w-4 h-4 mr-1" /> יצוא CSV
-                </Button>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="file"
-                    accept=".csv"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                    className="w-56"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => file && importGroupsCSV(file)}
-                    disabled={!file}
-                  >
-                    <Upload className="w-4 h-4 mr-1" /> יבוא CSV
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                {groups.map((g) => (
-                  <Card key={g.id} className="border">
-                    <CardContent className="pt-4 space-y-3">
-                      <div className="grid grid-cols-12 gap-2 items-center">
-                        <div className="col-span-6">
-                          <Input
-                            placeholder="שם הקבוצה"
-                            value={g.name}
-                            onChange={(e) =>
-                              setGroups((prev) =>
-                                prev.map((x) =>
-                                  x.id === g.id ? { ...x, name: e.target.value } : x
-                                )
-                              )
-                            }
-                          />
-                        </div>
-                        <div className="col-span-6">
-                          <Input
-                            placeholder="קישור לקבוצה"
-                            value={g.url}
-                            onChange={(e) =>
-                              setGroups((prev) =>
-                                prev.map((x) =>
-                                  x.id === g.id ? { ...x, url: e.target.value } : x
-                                )
-                              )
-                            }
-                          />
-                        </div>
-                        <div className="col-span-12">
-                          <Textarea
-                            placeholder="הערות/כללי הקבוצה (ללא קישורים? מחיר חובה? וכו')"
-                            value={g.rules || ""}
-                            onChange={(e) =>
-                              setGroups((prev) =>
-                                prev.map((x) =>
-                                  x.id === g.id ? { ...x, rules: e.target.value } : x
-                                )
-                              )
-                            }
-                          />
-                        </div>
-                        <div className="col-span-3 flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
-                          <Input
-                            type="number"
-                            min={1}
-                            value={g.cooldownHours ?? 72}
-                            onChange={(e) =>
-                              setGroups((prev) =>
-                                prev.map((x) =>
-                                  x.id === g.id
-                                    ? { ...x, cooldownHours: Number(e.target.value) }
-                                    : x
-                                )
-                              )
-                            }
-                          />
-                          <span>שעות קירור</span>
-                        </div>
-                        <div className="col-span-3 flex items-center gap-2">
-                          <Switch
-                            checked={g.active !== false}
-                            onCheckedChange={(v) =>
-                              setGroups((prev) =>
-                                prev.map((x) =>
-                                  x.id === g.id ? { ...x, active: Boolean(v) } : x
-                                )
-                              )
-                            }
-                          />
-                          <span>פעיל</span>
-                        </div>
-                        <div className="col-span-4 text-sm text-muted-foreground">
-                          פורסם לאחרונה: {g.lastPostedAt ? new Date(g.lastPostedAt).toLocaleString() : "—"}
-                        </div>
-                        <div className="col-span-2 flex justify-end">
-                          <Button variant="destructive" onClick={() => removeGroup(g.id)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Run */}
-        <TabsContent value="run">
-          <Card>
-            <CardHeader>
-              <CardTitle>ריצת פרסום ידנית – צעד אחר צעד</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="md:col-span-2 space-y-4">
-                  <ol className="list-decimal mr-6 space-y-2 text-sm leading-6">
-                    <li>
-                      העתק את הטקסט המוכן (כפתור <strong>העתק טקסט</strong> בלשונית
-                      "מודעה").
-                    </li>
-                    <li>
-                      לחץ על <strong>פתח</strong> ליד כל קבוצה – ייפתח לך הטאב של
-                      הקבוצה בפייסבוק.
-                    </li>
-                    <li>
-                      הדבק את הטקסט בעורך של פייסבוק. אם צריך, הוסף תמונה ידנית
-                      מהמחשב/קישור.
-                    </li>
-                    <li>
-                      פרסם. לאחר הפרסום, לחץ על <strong>סמן כפוסט</strong> כדי לתעד
-                      את התאריך.
-                    </li>
-                  </ol>
-                </div>
-                <div className="space-y-2">
-                  <Button onClick={() => copyToClipboard(compiledText)} className="w-full">
-                    <ClipboardCheck className="w-4 h-4 mr-1" /> העתק הכל
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                    className="w-full"
-                  >
-                    <Wand2 className="w-4 h-4 mr-1" /> חזרה ללשונית ניסוח
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                {readyGroups.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    אין כרגע קבוצות מוכנות (כנראה תחת תקופת קירור). ניתן לערוך את ערך
-                    השעות בלשונית קבוצות.
-                  </p>
-                )}
-                {readyGroups.map((g) => (
-                  <Card key={g.id}>
-                    <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                      <CardTitle className="text-base">{g.name || g.url}</CardTitle>
-                      <Badge variant="secondary">
-                        קירור: {g.cooldownHours ?? 72}ש׳
-                      </Badge>
-                    </CardHeader>
-                    <CardContent className="flex gap-2">
-                      <Button onClick={() => openGroup(g)} className="flex-1">
-                        <ExternalLink className="w-4 h-4 mr-1" /> פתח קבוצה
-                      </Button>
-                      <Button variant="secondary" onClick={() => markPosted(g.id)}>
-                        <ListChecks className="w-4 h-4 mr-1" /> סמן כפוסט
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tests */}
-        <TabsContent value="tests">
-          <Card>
-            <CardHeader>
-              <CardTitle>בדיקות פונקציית החלפת משתנים (replaceWithVars)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {testResults.map((t) => (
-                <div key={t.name} className="border rounded-xl p-3 text-sm">
-                  <div className="flex items-center gap-2 mb-2">
-                    {t.pass ? (
-                      <CheckCircle2 className="w-4 h-4" />
-                    ) : (
-                      <XCircle className="w-4 h-4" />
-                    )}
-                    <strong>{t.name}</strong>
-                    <Badge variant={t.pass ? "secondary" : "destructive"}>
-                      {t.pass ? "PASS" : "FAIL"}
-                    </Badge>
-                  </div>
-                  <div>
-                    <strong>Template:</strong> {t.template}
-                  </div>
-                  <div>
-                    <strong>Vars:</strong> {JSON.stringify(t.vars)}
-                  </div>
-                  <div>
-                    <strong>Expected:</strong> {t.expected}
-                  </div>
-                  <div>
-                    <strong>Output:</strong> {t.out}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>טיפים לקצב פרסום נכון</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="list-disc mr-6 space-y-1 text-sm">
-            <li>
-              קרא את כללי כל קבוצה והדבק את המודעה בהתאם (לדוגמה: מחיר חובה, ללא
-              קישורים וכו').
-            </li>
-            <li>השאר מרווחי זמן בין פרסומים דומים כדי להימנע מחסימות.</li>
-            <li>עדיף לפרסם קודם פוסט בעמוד העסקי שלך ואז לשתף ידנית לקבוצות.</li>
-            <li>שתול UTM בקישורים כדי למדוד תנועה בגוגל אנליטיקס.</li>
-          </ul>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+    // Init
+    renderPresetsOptions();
+    renderPresetFields();
+    renderVars();
+    renderGroups();
+    renderReadyGroups();
+    renderTests();
+  </script>
+</body>
+</html>
